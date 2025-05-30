@@ -4,6 +4,34 @@ This is an AI agent built with Strands MCP that can:
 1. Get the current weather for any city (no API key required)
 2. Calculate the distance between a city and Giza, Egypt (location of the Great Pyramids)
 
+mermaid
+graph TD
+    User[User] --> CLI[Command Line Interface]
+    CLI --> Processor[Query Processor]
+    Processor --> Decision{Ollama Running?}
+    Decision -->|Yes| AI[Llama 3.2 Model]
+    Decision -->|No| Fallback[Rule-Based Processor]
+    AI --> Tools[Tools]
+    Fallback --> Parser[Simple Query Parser]
+    Tools --> Weather[Weather Tool]
+    Tools --> Distance[Distance Calculator]
+    Weather --> API[wttr.in API]
+    Distance --> DB[(City Coordinates DB)]
+    Weather --> Response[Response]
+    Distance --> Response
+    Parser --> Weather
+    Parser --> Distance
+    
+    classDef primary fill:#d1eaff,stroke:#0066cc,stroke-width:2px;
+    classDef secondary fill:#e6f5d0,stroke:#60a917,stroke-width:2px;
+    classDef external fill:#fff4dd,stroke:#ff8c00,stroke-width:2px;
+    classDef decision fill:#e6e6e6,stroke:#333333,stroke-width:2px;
+    
+    class User,CLI,Processor primary;
+    class AI,Tools,Fallback,Parser,Weather,Distance,Response secondary;
+    class API,DB external;
+    class Decision decision;
+
 ## Features
 
 - Uses wttr.in for weather data (no API key required)
