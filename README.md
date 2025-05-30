@@ -1,54 +1,8 @@
 # Weather and Distance from Giza Agent
 
 This is an AI agent built with Strands MCP that can:
-1. Get the current weather for any city (no API key required)
-2. Calculate the distance between a city and Giza, Egypt (location of the Great Pyramids)
-
-## Architecture
-
-The Weather and Distance from Giza Agent uses a dual-mode architecture that can operate with or without the Llama 3.2 model:
-
-```mermaid
-graph TD
-    User[User] --> CLI[Command Line Interface]
-    CLI --> Processor[Query Processor]
-    Processor --> Decision{Ollama Running?}
-    Decision -->|Yes| AI[Llama 3.2 Model]
-    Decision -->|No| Fallback[Rule-Based Processor]
-    AI --> Tools[Tools]
-    Fallback --> Parser[Simple Query Parser]
-    Tools --> Weather[Weather Tool]
-    Tools --> Distance[Distance Calculator]
-    Weather --> API[wttr.in API]
-    Distance --> DB[(City Coordinates DB)]
-    Weather --> Response[Response]
-    Distance --> Response
-    Parser --> Weather
-    Parser --> Distance
-    
-    classDef primary fill:#d1eaff,stroke:#0066cc,stroke-width:2px;
-    classDef secondary fill:#e6f5d0,stroke:#60a917,stroke-width:2px;
-    classDef external fill:#fff4dd,stroke:#ff8c00,stroke-width:2px;
-    classDef decision fill:#e6e6e6,stroke:#333333,stroke-width:2px;
-    
-    class User,CLI,Processor primary;
-    class AI,Tools,Fallback,Parser,Weather,Distance,Response secondary;
-    class API,DB external;
-    class Decision decision;
-```
-
-- When Ollama is running, it uses the AI-powered mode with Llama 3.2 for natural language understanding
-- When Ollama is not available, it falls back to a rule-based processor
-- Both modes use the same underlying tools for weather data and distance calculations
-- The weather tool connects to the wttr.in API (no API key required)
-- The distance calculator uses a pre-defined database of city coordinates
-
-## Features
-
-- Uses wttr.in for weather data (no API key required)
-- Pre-defined coordinates for major cities to calculate distances
-- Works with Llama 3.2 model through Ollama for AI-powered responses
-- Includes fallback mode that works without an AI model
+1. Get the current weather for any city
+2. Calculate the distance between any city and Giza, Egypt (location of the Great Pyramids)
 
 ## Setup
 
@@ -87,23 +41,19 @@ The agent uses:
 - Strands Agents SDK for the AI agent framework
 - Llama 3.2 model running locally through Ollama for natural language understanding (optional)
 - wttr.in API for weather data (no API key required)
-- Pre-defined coordinates for major cities to calculate distances from Giza
+- Geopy for geocoding and distance calculations
+
+### Geocoding
+
+The agent uses Geopy's Nominatim geocoder to find the coordinates of any city in the world. This allows it to calculate the distance between any city and Giza, Egypt, without relying on a pre-defined list of coordinates.
 
 ### Fallback Mode
 
 If Ollama is not running or the Llama 3.2 model is not available, the agent will automatically fall back to a rule-based mode that doesn't require an AI model. This ensures the agent can always provide weather and distance information.
 
-### Distance Calculation
-
-The agent can calculate distances for these major cities:
-New York, London, Paris, Tokyo, Sydney, Cairo, Beijing, Moscow, Dubai, Los Angeles, Chicago, Toronto, Mexico City, Sao Paulo, Mumbai, Singapore, Berlin, Rome, Madrid, Amsterdam, Bangkok, Seoul, Johannesburg, Istanbul, Rio de Janeiro, San Francisco, Barcelona, Vienna, Athens, and more.
-
 ## Requirements
 
 - Python 3.8+
+- Geopy for geocoding and distance calculations
 - Ollama installed with Llama 3.2 model (optional, for AI-powered responses)
-- Internet connection for weather data
-
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+- Internet connection for weather data and geocoding

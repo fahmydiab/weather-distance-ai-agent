@@ -4,12 +4,18 @@ import sys
 import os
 from strands import Agent, tool
 from strands_tools import calculator
+from geopy.geocoders import Nominatim
+from geopy.distance import geodesic
+import time
 
 # Disable proxies globally for all requests
 os.environ['http_proxy'] = ''
 os.environ['https_proxy'] = ''
 os.environ['HTTP_PROXY'] = ''
 os.environ['HTTPS_PROXY'] = ''
+
+# Initialize the geocoder with a custom user agent
+geocoder = Nominatim(user_agent="weather_distance_agent/1.0")
 
 # Tool to get weather information for a city
 @tool
@@ -41,38 +47,9 @@ def get_weather(city: str) -> str:
     except Exception as e:
         return f"Error: {str(e)}"
 
-# Dictionary of major city coordinates (latitude, longitude)
+# Dictionary of major city coordinates as fallback (latitude, longitude)
 CITY_COORDINATES = {
-    "new york": (40.7128, -74.0060),
-    "london": (51.5074, -0.1278),
-    "paris": (48.8566, 2.3522),
-    "tokyo": (35.6762, 139.6503),
-    "sydney": (-33.8688, 151.2093),
-    "cairo": (30.0444, 31.2357),
-    "giza": (29.9773, 31.1325),
-    "beijing": (39.9042, 116.4074),
-    "moscow": (55.7558, 37.6173),
-    "dubai": (25.2048, 55.2708),
-    "los angeles": (34.0522, -118.2437),
-    "chicago": (41.8781, -87.6298),
-    "toronto": (43.6532, -79.3832),
-    "mexico city": (19.4326, -99.1332),
-    "sao paulo": (-23.5505, -46.6333),
-    "mumbai": (19.0760, 72.8777),
-    "singapore": (1.3521, 103.8198),
-    "berlin": (52.5200, 13.4050),
-    "rome": (41.9028, 12.4964),
-    "madrid": (40.4168, -3.7038),
-    "amsterdam": (52.3676, 4.9041),
-    "bangkok": (13.7563, 100.5018),
-    "seoul": (37.5665, 126.9780),
-    "johannesburg": (-26.2041, 28.0473),
-    "istanbul": (41.0082, 28.9784),
-    "rio de janeiro": (-22.9068, -43.1729),
-    "san francisco": (37.7749, -122.4194),
-    "barcelona": (41.3851, 2.1734),
-    "vienna": (48.2082, 16.3738),
-    "athens": (37.9838, 23.7275),
+    "giza": (29.9773, 31.1325),  # Keep Giza coordinates for fallback
 }
 
 # Tool to calculate distance from Giza
@@ -90,35 +67,98 @@ def distance_from_giza(city: str) -> str:
     # Giza coordinates (latitude, longitude)
     giza_lat = 29.9773
     giza_lon = 31.1325
+    giza_coords = (giza_lat, giza_lon)
     
-    # Normalize city name for lookup
-    city_lower = city.lower()
+    try:
+        # Try to geocode the city
+        location = geocoder.geocode(city, exactly_one=True)
+        
+        # If geocoding successful, calculate distance
+        if location:
+            city_coords = (location.latitude, location.longitude)
+            
+            # Calculate distance using geodesic distance (more accurate than Haversine)
+            distance_km = geodesic(giza_coords, city_coords).kilometers
+            distance_miles = distance_km / 1.609
+            
+            return f"Distance from {city} to Giza, Egypt: {distance_km:.2f} kilometers ({distance_miles:.2f} miles)"
+        else:
+            # Fallback to our dictionary for common cities
+            city_lower = city.lower()
+            if city_lower in CITY_COORDINATES:
+                city_lat, city_lon = CITY_COORDINATES[city_lower]
+                city_coords = (city_lat, city_lon)
+                distance_km = geodesic(giza_coords, city_coords).kilometers
+                distance_miles = distance_km / 1.609
+                return f"Distance from {city} to Giza, Egypt: {distance_km:.2f} kilometers ({distance_miles:.2f} miles)"
+            else:
+                return f"Could not find coordinates for {city}. Please try a different city name or format."
     
-    # Check if we have the coordinates for this city
-    if city_lower in CITY_COORDINATES:
-        city_lat, city_lon = CITY_COORDINATES[city_lower]
+    except Exception as e:
+        return f"Error calculating distance: {str(e)}"
+
+# Simple function to process queries without using an AI model
+def process_query(query):
+    query = query.lower()
+    
+    if "weather" in query or "temp" in query or "temperature" in query:
+        # Extract city name - this is a simple approach
+        # Try to extract city name from the query
+        city = extract_city_from_query(query)
+        if city:
+            # Get both weather and distance information
+            weather_info = get_weather(city)
+            # Add a small delay to avoid rate limiting from geocoding service
+            time.sleep(1)
+            distance_info = distance_from_giza(city)
+            return f"{weather_info}\n\n{distance_info}"
+        return "Please specify a city for weather information."
+    
+    elif "distance" in query or "far" in query or "from giza" in query:
+        # Extract city name
+        city = extract_city_from_query(query)
+        if city:
+            return distance_from_giza(city)
+        return "Please specify a city to calculate distance from Giza."
+    
+    elif "help" in query:
+        return """I can help you with:
+1. Weather information for any city (e.g., "What's the weather in London?")
+2. Distance from Giza, Egypt to any city (e.g., "How far is Tokyo from Giza?")
+
+You can ask about any city in the world, and I'll try to find its coordinates and calculate the distance."""
+    
     else:
-        # For cities not in our database, use a fallback approach
-        # This is a simplified approach that doesn't require an API key
-        return f"I don't have the exact coordinates for {city} in my database. I can provide distances for major cities like New York, London, Paris, Tokyo, etc."
+        return """I'm not sure what you're asking. I can help with:
+1. Weather information (e.g., "What's the weather in London?")
+2. Distance from Giza (e.g., "How far is Tokyo from Giza?")
+
+Type 'help' for more information."""
+
+# Helper function to extract city name from query
+def extract_city_from_query(query):
+    # List of common prepositions and articles that might precede city names
+    prepositions = ["in", "at", "for", "from", "to", "of", "about"]
     
-    # Calculate distance using Haversine formula
-    R = 6371  # Earth radius in kilometers
+    # Split the query into words
+    words = query.lower().split()
     
-    # Convert latitude and longitude from degrees to radians
-    lat1 = math.radians(giza_lat)
-    lon1 = math.radians(giza_lon)
-    lat2 = math.radians(city_lat)
-    lon2 = math.radians(city_lon)
+    # Look for city names after prepositions
+    for i, word in enumerate(words):
+        if word in prepositions and i < len(words) - 1:
+            # Take all words after the preposition as the city name
+            potential_city = " ".join(words[i+1:])
+            # Remove punctuation from the end
+            potential_city = potential_city.rstrip(",.!?;:")
+            return potential_city
     
-    # Haversine formula
-    dlon = lon2 - lon1
-    dlat = lat2 - lat1
-    a = math.sin(dlat/2)**2 + math.cos(lat1) * math.cos(lat2) * math.sin(dlon/2)**2
-    c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
-    distance = R * c
+    # If no preposition found, try to find known city names in the query
+    for city in CITY_COORDINATES.keys():
+        if city in query:
+            return city
     
-    return f"Distance from {city.title()} to Giza, Egypt: {distance:.2f} kilometers ({distance/1.609:.2f} miles)"
+    # If no city found, return None
+    return None
 
 # Function to check if Ollama server is running
 def is_ollama_running():
@@ -130,38 +170,6 @@ def is_ollama_running():
         return response.status_code == 200
     except:
         return False
-
-# Simple function to process queries without using an AI model
-def process_query(query):
-    query = query.lower()
-    
-    if "weather" in query:
-        # Extract city name - this is a simple approach
-        for city in CITY_COORDINATES.keys():
-            if city in query:
-                return get_weather(city)
-        return "Please specify a city for weather information."
-    
-    elif "distance" in query or "far" in query or "from giza" in query:
-        # Extract city name
-        for city in CITY_COORDINATES.keys():
-            if city in query:
-                return distance_from_giza(city)
-        return "Please specify a city to calculate distance from Giza."
-    
-    elif "help" in query:
-        return """I can help you with:
-1. Weather information for major cities (e.g., "What's the weather in London?")
-2. Distance from Giza, Egypt to major cities (e.g., "How far is Tokyo from Giza?")
-
-Available cities: New York, London, Paris, Tokyo, Sydney, Cairo, Beijing, Moscow, Dubai, Los Angeles, Chicago, Toronto, Mexico City, Sao Paulo, Mumbai, Singapore, Berlin, Rome, Madrid, Amsterdam, Bangkok, Seoul, Johannesburg, Istanbul, Rio de Janeiro, San Francisco, Barcelona, Vienna, Athens."""
-    
-    else:
-        return """I'm not sure what you're asking. I can help with:
-1. Weather information (e.g., "What's the weather in London?")
-2. Distance from Giza (e.g., "How far is Tokyo from Giza?")
-
-Type 'help' for more information."""
 
 # Function to run the agent
 def run_agent():
@@ -192,7 +200,8 @@ def run_agent():
 You can get the current weather for any city and calculate how far it is from the Great Pyramids of Giza.
 Always provide both metric and imperial units when discussing distances.
 Be friendly and informative in your responses.
-For cities not in your database, let the user know which major cities you can calculate distances for."""
+When a user asks about the weather or temperature of a city, always include the distance from Giza in your response.
+If you can't find a city's coordinates, let the user know and suggest they try a different spelling or a major city nearby."""
             )
             
             # Use AI-powered agent
