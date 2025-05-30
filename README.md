@@ -4,7 +4,11 @@ This is an AI agent built with Strands MCP that can:
 1. Get the current weather for any city (no API key required)
 2. Calculate the distance between a city and Giza, Egypt (location of the Great Pyramids)
 
-mermaid
+## Architecture
+
+The Weather and Distance from Giza Agent uses a dual-mode architecture that can operate with or without the Llama 3.2 model:
+
+```mermaid
 graph TD
     User[User] --> CLI[Command Line Interface]
     CLI --> Processor[Query Processor]
@@ -31,6 +35,13 @@ graph TD
     class AI,Tools,Fallback,Parser,Weather,Distance,Response secondary;
     class API,DB external;
     class Decision decision;
+```
+
+- When Ollama is running, it uses the AI-powered mode with Llama 3.2 for natural language understanding
+- When Ollama is not available, it falls back to a rule-based processor
+- Both modes use the same underlying tools for weather data and distance calculations
+- The weather tool connects to the wttr.in API (no API key required)
+- The distance calculator uses a pre-defined database of city coordinates
 
 ## Features
 
